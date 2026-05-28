@@ -834,6 +834,85 @@ main { padding: 32px 0 60px; min-width: 0; max-width: none; }
 .art-meta-row .pdf-yes { color: var(--signal-green); font-weight: 500; }
 .art-meta-row .pdf-no { color: var(--k40); }
 
+
+/* ===== WELCOME / HOW-TO MODAL ===== */
+.welcome-bg {
+  position: fixed; inset: 0; z-index: 260;
+  background: rgba(20, 20, 20, 0.32);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+  display: none; align-items: flex-start; justify-content: center;
+  padding: 64px 24px 40px;
+  overflow-y: auto;
+}
+.welcome-bg.open { display: flex; }
+.welcome-modal {
+  background: white; border-radius: 22px;
+  width: 100%; max-width: 680px;
+  padding: 44px 48px 36px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.06);
+  position: relative; font-family: var(--sans);
+}
+.welcome-close {
+  position: absolute; top: 18px; right: 18px;
+  width: 36px; height: 36px;
+  background: transparent; border: none; border-radius: 50%;
+  font-size: 22px; line-height: 1; color: var(--k60);
+  cursor: pointer; padding: 0; font-weight: 300;
+}
+.welcome-close:hover { background: var(--k05); color: var(--k100); }
+.welcome-eyebrow {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--k50); letter-spacing: 0.04em;
+  margin-bottom: 14px;
+}
+.welcome-title {
+  font-family: var(--sans); font-weight: 600;
+  font-size: 30px; line-height: 1.15; letter-spacing: -0.025em;
+  color: var(--k100); margin: 0 0 22px;
+}
+.welcome-body p {
+  font-family: var(--sans); font-size: 14.5px; line-height: 1.65;
+  color: var(--k80); margin: 0 0 14px;
+}
+.welcome-body h3 {
+  font-family: var(--sans); font-weight: 600;
+  font-size: 14px; color: var(--k90); letter-spacing: 0;
+  margin: 22px 0 8px;
+}
+.welcome-body ul {
+  margin: 0 0 14px; padding-left: 20px;
+  font-family: var(--sans); font-size: 14.5px; line-height: 1.6;
+  color: var(--k80);
+}
+.welcome-body ul li { margin-bottom: 6px; }
+.welcome-body em { color: var(--k70); font-style: italic; }
+.welcome-body a { color: var(--signal-red); text-decoration: none; }
+.welcome-body a:hover { text-decoration: underline; }
+.welcome-foot {
+  margin-top: 22px; padding-top: 18px;
+  border-top: 1px solid var(--soft-line);
+  display: flex; justify-content: flex-end;
+}
+.welcome-go {
+  background: var(--signal-red); color: white;
+  border: none; border-radius: 14px;
+  padding: 14px 26px;
+  font-family: var(--sans); font-size: 14px; font-weight: 600;
+  letter-spacing: -0.005em; cursor: pointer;
+  transition: background .14s, transform .12s, box-shadow .14s;
+}
+.welcome-go:hover {
+  background: var(--k90); transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+.topbar .about-link {
+  background: transparent; border: none; padding: 6px 10px;
+  font-family: var(--sans); font-size: 13px;
+  color: var(--k60); cursor: pointer; border-radius: 999px;
+}
+.topbar .about-link:hover { color: var(--k90); background: var(--k05); }
+
 </style>
 </head>
 <body>
@@ -846,6 +925,7 @@ main { padding: 32px 0 60px; min-width: 0; max-width: none; }
   <div class="sep">/</div>
   <div class="meta" id="ref-code">Ref: SP/ARC_00[BOS]</div>
   <div class="right">
+    <button class="about-link" id="about-link">About this project</button>
     <div class="critic"><span class="sync-dot" id="sync-dot"></span><span class="label">Critic:</span> <span id="critic-name">—</span></div>
     <button class="pill" id="change-critic">Change</button>
     <button class="pill signal" id="find-article-btn">Find article</button>
@@ -1978,6 +2058,7 @@ function setCritic(name) {
   saveConfig();
   document.getElementById("critic-name").textContent = state.critic || "—";
   document.getElementById("critic-modal").classList.remove("open");
+  setTimeout(maybeShowWelcomeFirstTime, 200);
 }
 
 // === SETUP PANEL (Apps Script URL) ===
@@ -2092,6 +2173,26 @@ document.getElementById("wiz-modal").addEventListener("click", (e) => {
   if (e.target.id === "wiz-modal") closeWizard();
 });
 
+
+// ===== WELCOME / HOW-TO MODAL =====
+const WELCOME_SEEN_KEY = "campbell_archive_welcome_seen_v1";
+function openWelcome() { document.getElementById("welcome-modal").classList.add("open"); }
+function closeWelcome() {
+  document.getElementById("welcome-modal").classList.remove("open");
+  try { localStorage.setItem(WELCOME_SEEN_KEY, "1"); } catch {}
+}
+function maybeShowWelcomeFirstTime() {
+  let seen = false;
+  try { seen = localStorage.getItem(WELCOME_SEEN_KEY) === "1"; } catch {}
+  if (!seen && state.critic) openWelcome();
+}
+document.getElementById("welcome-go").onclick = closeWelcome;
+document.getElementById("welcome-close").onclick = closeWelcome;
+document.getElementById("about-link").onclick = openWelcome;
+document.getElementById("welcome-modal").addEventListener("click", (e) => {
+  if (e.target.id === "welcome-modal") closeWelcome();
+});
+
 // === BOOT ===
 (async () => {
   // Boot data
@@ -2106,6 +2207,7 @@ document.getElementById("wiz-modal").addEventListener("click", (e) => {
     promptCritic();
   } else {
     document.getElementById("critic-name").textContent = state.critic;
+    setTimeout(maybeShowWelcomeFirstTime, 100);
   }
   // Set sync dot to offline if no API
   setSyncDot(state.apiUrl ? "syncing" : "offline");
@@ -2136,5 +2238,36 @@ document.getElementById("wiz-modal").addEventListener("click", (e) => {
     <div class="prep-msg">Preparing your selection…</div>
   </div>
 </div>
+
+<!-- WELCOME / HOW-TO MODAL (shown once per critic on first visit; reopen via topbar About link) -->
+<div class="welcome-bg" id="welcome-modal" role="dialog" aria-modal="true">
+  <div class="welcome-modal">
+    <button class="welcome-close" id="welcome-close" aria-label="Close">×</button>
+    <div class="welcome-eyebrow">Both Loved &amp; Hated · Robert Campbell Archive</div>
+    <h2 class="welcome-title">A note to critics.</h2>
+    <div class="welcome-body">
+      <p>Welcome — and thank you for taking part. The 129 columns gathered here are the work that, on a re-read, felt most worth bringing back. The nine pieces from Robert's 1996 Pulitzer portfolio are included automatically.</p>
+      <h3>Picking your article</h3>
+      <p>Browse by chapter, decade, person, or topic. Click <strong>Read PDF</strong> to see the original column; if one resonates, click <strong>Claim this article</strong>. Each piece can only be claimed by one critic — first come, first served. If someone's already taken the one you wanted, write to us; we can usually figure something out. But where you can, look for a piece nobody else has picked. Range is what we're after.</p>
+      <h3>What we're asking for</h3>
+      <p>Not a summary. Not a re-evaluation of the building. Your reflection — roughly <strong>800–1,000 words</strong> that take Campbell's column as a starting point and go wherever you want.</p>
+      <p>Some prompts, none prescriptive:</p>
+      <ul>
+        <li>What does this article say about the moment it was written, and the moment we're in now?</li>
+        <li>What does it tell you about the practice of criticism — what it can do, what it asks of the writer, what it costs?</li>
+        <li>What did Robert's career mean to you, personally or professionally?</li>
+      </ul>
+      <p>No template. Some will write close-readings; others a letter; others might use the article as a prompt to write about a building Campbell never reviewed. All welcome.</p>
+      <h3>Practical bits</h3>
+      <p>The site tracks your progress: <em>claimed → reading → intro drafted → done</em>. Move your status as you go.</p>
+      <p>If a piece you'd like doesn't have a scanned PDF here, the original is available via <strong>ProQuest Historical Newspapers: Boston Globe (1960–)</strong> through most university and public libraries.</p>
+      <p>If you need anything — a scan you can't track down, context on someone Campbell mentioned, a phone call to think out loud — write to Chris at <a href="mailto:grimley@sendoutsignals.com">grimley@sendoutsignals.com</a>.</p>
+    </div>
+    <div class="welcome-foot">
+      <button class="welcome-go" id="welcome-go">Got it — let's begin →</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
