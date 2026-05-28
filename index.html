@@ -820,6 +820,20 @@ main { padding: 32px 0 60px; min-width: 0; max-width: none; }
 #results.fresh > .article:nth-child(4) { animation-delay: 120ms; }
 #results.fresh > .article:nth-child(5) { animation-delay: 160ms; }
 
+
+/* No-source placeholder for articles without a scanned PDF */
+.art-no-source {
+  font-family: var(--sans); font-size: 13px;
+  line-height: 1.55; color: var(--k50);
+  margin: 0 0 22px;
+  padding-left: 14px;
+  border-left: 2px solid var(--k10);
+  font-style: italic;
+}
+.art-no-source em { color: var(--k60); font-style: normal; }
+.art-meta-row .pdf-yes { color: var(--signal-green); font-weight: 500; }
+.art-meta-row .pdf-no { color: var(--k40); }
+
 </style>
 </head>
 <body>
@@ -1737,14 +1751,21 @@ function renderArticle(a) {
   const page = a.page ? `p. ${escapeHtml(a.page)}` : "";
   const chapter = a.chapter || "";
   const topPieces = [dateLabel, page, chapter].filter(Boolean).map(escapeHtml);
+  // Only flag the absence — PDF-having cards stay clean.
+  if (!a.hasPdf) topPieces.push(`<span class="pdf-no">○ no PDF</span>`);
   const metaRow = `<div class="art-meta-row">${topPieces.join('<span class="sep">/</span>')}</div>`;
 
   const titleHtml = `<h3 class="art-title">${escapeHtml(cleanTitle(a.title))}</h3>`;
 
   // Preview (the lede)
-  const previewHtml = summary
-    ? `<p class="art-preview">${escapeHtml((summary.opening || summary.preview || "").slice(0, 280))}<span class="ellipsis">…</span></p>`
-    : ``;
+  let previewHtml;
+  if (summary) {
+    previewHtml = `<p class="art-preview">${escapeHtml((summary.opening || summary.preview || "").slice(0, 280))}<span class="ellipsis">…</span></p>`;
+  } else if (!a.hasPdf) {
+    previewHtml = `<p class="art-no-source">No PDF in this archive — source available via <em>ProQuest Historical Newspapers: Boston Globe (1960–)</em>.</p>`;
+  } else {
+    previewHtml = ``;
+  }
 
   // Subject is sometimes a one-line bonus context line
   const subjectHtml = a.subject && a.subject.length < 120
