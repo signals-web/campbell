@@ -177,32 +177,41 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 main { padding: 32px 0 60px; min-width: 0; max-width: none; }
 
 /* ===== SUGGESTED BAND (per-critic invite links) ===== */
-.sugg-band { display: none; margin-bottom: 34px; }
+.sugg-band { display: none; margin: 0 0 42px; }
 .sugg-band.on { display: block; }
-.sugg-head {
-  border-top: 2px solid var(--k100);
-  border-bottom: 1px solid var(--k100);
-  padding: 14px 0 12px; margin-bottom: 20px;
-  display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+.sugg-panel {
+  background: var(--k05);
+  border: 1px solid var(--k100);
+  border-top: 5px solid var(--signal-red);
+  border-radius: 22px;
+  padding: 32px 34px 30px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04), 0 22px 50px rgba(0,0,0,0.09);
 }
-.sugg-head .sugg-eyebrow {
-  font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
-  text-transform: uppercase; color: var(--k50); display: block; margin-bottom: 6px;
+.sugg-head { margin-bottom: 24px; }
+.sugg-eyebrow {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--signal-red); font-weight: 500;
+  display: block; margin-bottom: 12px;
 }
 .sugg-head h2 {
-  font-size: 20px; font-weight: 600; letter-spacing: -0.01em; margin: 0; color: var(--k100);
+  font-size: 32px; font-weight: 700; letter-spacing: -0.022em; line-height: 1.08;
+  margin: 0; color: var(--k100);
 }
-.sugg-head p { margin: 6px 0 0; font-size: 13px; color: var(--k60); max-width: 62ch; line-height: 1.5; }
+.sugg-head p {
+  margin: 12px 0 0; font-size: 15px; color: var(--k70);
+  max-width: 60ch; line-height: 1.55;
+}
+.sugg-panel .article { border-color: var(--k15); }
 .sugg-jump {
-  font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em;
-  color: var(--k60); background: none; border: none; cursor: pointer;
-  padding: 4px 0; border-bottom: 1px solid var(--k30); white-space: nowrap; flex: none;
+  display: block; width: 100%; margin: 24px 0 2px; padding: 16px;
+  text-align: center; font-family: var(--sans); font-size: 14px; font-weight: 600;
+  letter-spacing: -0.005em; background: #fff; color: var(--k80);
+  border: 1px solid var(--k20); border-radius: 14px; cursor: pointer;
+  transition: border-color .15s ease, color .15s ease, box-shadow .15s ease;
 }
-.sugg-jump:hover { color: var(--k100); border-bottom-color: var(--k100); }
-.sugg-rule {
-  margin: 30px 0 0; border-top: 1px solid var(--soft-line);
-  padding-top: 14px; font-family: var(--mono); font-size: 10px;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--k50);
+.sugg-jump:hover {
+  border-color: var(--k100); color: var(--k100);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.06);
 }
 
 .results-header {
@@ -1530,16 +1539,15 @@ function renderSuggestedBand() {
     : "A starting point, not an assignment. Claim one of these, or ignore them entirely and take anything from the archive below.";
 
   band.innerHTML = `
-    <div class="sugg-head">
-      <div>
+    <div class="sugg-panel">
+      <div class="sugg-head">
         <span class="sugg-eyebrow">Selected for you</span>
-        <h2>${first ? escapeHtml(first) + ", three" : "Three"} we thought of for you.</h2>
+        <h2>${first ? escapeHtml(first) + ", three we thought of for you." : "Three we thought of for you."}</h2>
         <p>${note}</p>
       </div>
-      <button class="sugg-jump" id="sugg-jump">Browse all ↓</button>
+      ${rows.map(renderArticle).join("")}
+      <button class="sugg-jump" id="sugg-jump">Browse the full archive — ${DATA.filter(a => a.hasPdf).length} columns ↓</button>
     </div>
-    ${rows.map(renderArticle).join("")}
-    <div class="sugg-rule">The full archive — ${DATA.filter(a => a.hasPdf).length} columns</div>
   `;
   band.classList.add("on");
   const jump = document.getElementById("sugg-jump");
