@@ -176,6 +176,35 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 /* ===== MAIN ===== */
 main { padding: 32px 0 60px; min-width: 0; max-width: none; }
 
+/* ===== SUGGESTED BAND (per-critic invite links) ===== */
+.sugg-band { display: none; margin-bottom: 34px; }
+.sugg-band.on { display: block; }
+.sugg-head {
+  border-top: 2px solid var(--k100);
+  border-bottom: 1px solid var(--k100);
+  padding: 14px 0 12px; margin-bottom: 20px;
+  display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+}
+.sugg-head .sugg-eyebrow {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--k50); display: block; margin-bottom: 6px;
+}
+.sugg-head h2 {
+  font-size: 20px; font-weight: 600; letter-spacing: -0.01em; margin: 0; color: var(--k100);
+}
+.sugg-head p { margin: 6px 0 0; font-size: 13px; color: var(--k60); max-width: 62ch; line-height: 1.5; }
+.sugg-jump {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em;
+  color: var(--k60); background: none; border: none; cursor: pointer;
+  padding: 4px 0; border-bottom: 1px solid var(--k30); white-space: nowrap; flex: none;
+}
+.sugg-jump:hover { color: var(--k100); border-bottom-color: var(--k100); }
+.sugg-rule {
+  margin: 30px 0 0; border-top: 1px solid var(--soft-line);
+  padding-top: 14px; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--k50);
+}
+
 .results-header {
   display: flex; justify-content: space-between; align-items: baseline;
   margin-bottom: 18px; padding-bottom: 14px;
@@ -982,6 +1011,7 @@ main { padding: 32px 0 60px; min-width: 0; max-width: none; }
 
   <main>
     <div id="setup-panel" style="display:none;"></div>
+    <div id="suggested-band" class="sugg-band"></div>
     <div id="discover-panel" class="discover"></div>
     <div class="active-filter-bar" id="active-filters"></div>
     <div class="results-header">
@@ -1050,11 +1080,11 @@ main { padding: 32px 0 60px; min-width: 0; max-width: none; }
     <div class="welcome-eyebrow">Both Loved &amp; Hated · Robert Campbell Archive</div>
     <h2 class="welcome-title">A note to critics.</h2>
     <div class="welcome-body">
-      <p>Welcome—and thank you for taking part. The 129 columns gathered here are the work that, on a re-read, felt most worth bringing back. The nine pieces from Robert's 1996 Pulitzer portfolio are included automatically.</p>
+      <p>Welcome—and thank you for taking part. The 114 columns gathered here are the work that, on a re-read, felt most worth bringing back—including pieces from Robert's 1996 Pulitzer Prize portfolio.</p>
       <h3>Picking your article</h3>
       <p>Browse by chapter, decade, person, or topic. Click <strong>Read PDF</strong> to see the original column; if one resonates, click <strong>Claim this article</strong>. Each piece can only be claimed by one critic—first come, first served. If someone's already taken the one you wanted, write to us; we can usually figure something out. But where you can, look for a piece nobody else has picked. Range is what we're after.</p>
       <h3>What we're asking for</h3>
-      <p>Not a summary. Not a re-evaluation of the building. Your reflection—roughly <strong>800–1,000 words</strong> that take Campbell's column as a starting point and go wherever you want.</p>
+      <p>Not a summary. Not a re-evaluation of the building. Your reflection—roughly <strong>600–800 words</strong> that take Campbell's column as a starting point and go wherever you want.</p>
       <p>Some prompts, none prescriptive:</p>
       <ul>
         <li>What does this article say about the moment it was written, and the moment we're in now?</li>
@@ -1246,6 +1276,8 @@ const state = {
   statusFilter: "all",
   sort: "date-asc",
   shortlist: new Set(initial.shortlist || []),
+  suggested: [],      // article indices pinned by ?sugg= (RC_#### = 0-based DATA index)
+  fromLink: false,    // arrived via a personalized invite link
   critic: initial.critic || "",
   apiUrl: initial.apiUrl || "https://script.google.com/macros/s/AKfycbyUKaI9bzIVxYbQbeVRcVKP07fDwphUiTt_3RiMvAV2NTPZ2EfF4vom5SgLtKuwTNJw/exec",
   claims: {},
@@ -1430,7 +1462,8 @@ function renderDiscover() {
 }
 
 function hasUserSelection() {
-  return state.query.trim().length > 0
+  return state.fromLink
+      || state.query.trim().length > 0
       || state.chapters.size > 0
       || state.personFilters.size > 0
       || state.themeFilters.size > 0
@@ -1439,6 +1472,81 @@ function hasUserSelection() {
       || state.statusFilter !== "all"
       || state.onlyContext
       || state.onlyPreview;
+}
+
+// ===== INVITE LINKS (?critic= & ?sugg=) =====
+// Personalized links look like:
+//   ?critic=Alexandra%20Lange&sugg=RC_0016,RC_0012,RC_0582
+// RC_#### is the 0-based index into DATA (verified against the editorial
+// spreadsheet's Articles tab: 114/114 exact title matches).
+// Params are read once at boot, then stripped from the address bar so a
+// forwarded URL doesn't carry someone else's identity along with it.
+function parseRef(token) {
+  const m = String(token).trim().match(/^RC[_-]?(\d{1,4})$/i);
+  if (!m) return -1;
+  const i = parseInt(m[1], 10);
+  return Number.isInteger(i) && i >= 0 && i < DATA.length ? i : -1;
+}
+
+function parseLinkParams() {
+  let p;
+  try { p = new URLSearchParams(location.search); } catch { return; }
+  if (![...p.keys()].length) return;
+
+  const critic = (p.get("critic") || "").trim();
+  const suggRaw = (p.get("sugg") || "").trim();
+
+  if (critic) {
+    // The link's identity wins over anything cached from a previous visit —
+    // the recipient is who we addressed the email to.
+    state.critic = critic.slice(0, 24);
+    saveConfig();
+  }
+
+  if (suggRaw) {
+    const seen = new Set();
+    state.suggested = suggRaw.split(",")
+      .map(parseRef)
+      .filter(i => i >= 0 && !seen.has(i) && seen.add(i));
+    if (state.suggested.length) state.fromLink = true;
+  }
+
+  // Strip params so a forwarded link doesn't impersonate; keep the state.
+  try { history.replaceState(null, "", location.pathname); } catch {}
+}
+
+function renderSuggestedBand() {
+  const band = document.getElementById("suggested-band");
+  if (!band) return;
+  if (!state.suggested.length) { band.classList.remove("on"); band.innerHTML = ""; return; }
+
+  const rows = state.suggested.map(i => DATA[i]).filter(Boolean);
+  if (!rows.length) { band.classList.remove("on"); band.innerHTML = ""; return; }
+
+  const first = state.critic ? state.critic.split(/\s+/)[0] : "";
+  const taken = rows.filter(a => state.claims[articleKey(a)]).length;
+  const note = taken === rows.length
+    ? "Every one of these has been claimed since we wrote — the full archive is below, and anything unclaimed is yours."
+    : "A starting point, not an assignment. Claim one of these, or ignore them entirely and take anything from the archive below.";
+
+  band.innerHTML = `
+    <div class="sugg-head">
+      <div>
+        <span class="sugg-eyebrow">Selected for you</span>
+        <h2>${first ? escapeHtml(first) + ", three" : "Three"} we thought of for you.</h2>
+        <p>${note}</p>
+      </div>
+      <button class="sugg-jump" id="sugg-jump">Browse all ↓</button>
+    </div>
+    ${rows.map(renderArticle).join("")}
+    <div class="sugg-rule">The full archive — ${DATA.filter(a => a.hasPdf).length} columns</div>
+  `;
+  band.classList.add("on");
+  const jump = document.getElementById("sugg-jump");
+  if (jump) jump.onclick = () => {
+    const t = document.querySelector(".results-header");
+    if (t) t.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 }
 
 // ===== WIZARD STATE MACHINE =====
@@ -1665,6 +1773,7 @@ function renderWelcome() {
 
 function render() {
   renderDiscover();
+  renderSuggestedBand();
   // Chapter filter UI (built once)
   const cf = document.getElementById("chapter-filters");
   if (!cf.dataset.built) {
@@ -2233,11 +2342,16 @@ document.getElementById("welcome-modal").addEventListener("click", (e) => {
     document.getElementById("results").innerHTML = `<div class="empty">DATA_DECODE_FAILURE: ${escapeHtml(e.message)}</div>`;
     return;
   }
+  // Invite-link params (must run after decompressData—parseRef bounds-checks DATA)
+  parseLinkParams();
+
   // Set critic
   if (!state.critic) {
     promptCritic();
   } else {
     document.getElementById("critic-name").textContent = state.critic;
+    // Arriving from a personalized link, the name modal is skipped—but the
+    // "note to critics" is exactly what a first-time arrival needs.
     setTimeout(maybeShowWelcomeFirstTime, 100);
   }
   // Set sync dot to offline if no API
